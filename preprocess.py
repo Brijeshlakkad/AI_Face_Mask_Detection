@@ -14,35 +14,43 @@ import torch
 import torchvision
 from torch.utils.data import DataLoader, Dataset
 
-rootDir = './data/preprocessed'
+rootDir = './data'
 if not os.path.isdir(rootDir):
     os.makedirs(rootDir)
 
-trainCSVFileName = "./data/face-mask-detection-dataset/train.csv"
-#testCSVFileName = pd.read_csv("./data/face-mask-detection-dataset/submission.csv")
+
+dataFolder = "./data/face-mask-detection-dataset"
+inputFile = 'train.csv'
 
 columns = ["name", "x1", "x2", "y1", "y2", "classname"]
 
-trainDF = pd.read_csv(trainCSVFileName, skiprows=1, names=columns)
+trainDF = pd.read_csv(os.path.join(dataFolder, inputFile),
+                      skiprows=1, names=columns)
 
 iterator = trainDF.iterrows()
 
-ouputCSVFiles = {}
+ouputCSVFile = []
+
+preselectedClasses = [
+    "face_with_mask",
+    "mask_colorful",
+    "face_no_mask",
+    "face_with_mask_incorrect",
+    "mask_surgical",
+]
 
 for rowIndex in range(len(trainDF)):
     className = trainDF[columns[5]][rowIndex]
-    if className not in ouputCSVFiles:
-        ouputCSVFiles[className] = []
-    ouputCSVFiles[className].append(rowIndex)
+    if className in preselectedClasses:
+        ouputCSVFile.append(rowIndex)
 
 
-def saveCSV(fileName, rows):
-    # for i, row in enumerate(rows):
-    #     record = trainDF[:][rowIndex]
-
+def saveCSV(dirPath, fileName, rows):
+    if not os.path.isdir(dirPath):
+        os.makedirs(dirPath)
     df = trainDF.iloc[rows, :]
-    df.to_csv(os.path.join(rootDir, fileName+".csv"))
+    df.to_csv(os.path.join(dirPath, fileName))
+    print(f'Saved file {fileName} successfully!')
 
-for fileName in list(ouputCSVFiles.keys()):
-    print(f'Creating file.. {fileName}')
-    saveCSV(fileName, ouputCSVFiles[fileName])
+
+saveCSV(os.path.join(rootDir, 'preprocessed'), "data.csv", ouputCSVFile)
