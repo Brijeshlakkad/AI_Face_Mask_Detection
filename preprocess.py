@@ -5,45 +5,44 @@ Created on Wed Nov  3 16:30:46 2021
 
 @author: brijeshlakkad
 """
-import torch
-import torchvision
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
 import math
 import os
-import random
-import xml.etree.ElementTree as ET
 
-data_folder = './face_mask_detection/'
-root_folder = '/Users/brijeshlakkad/Downloads/VMI\ face\ detection/'
+import numpy as np
+import pandas as pd
+import torch
+import torchvision
+from torch.utils.data import DataLoader, Dataset
 
+rootDir = './data/preprocessed'
+if not os.path.isdir(rootDir):
+    os.makedirs(rootDir)
 
-def get_objects(xml_file):
-    annotations = ET.parse(xml_file)
-    root = annotations.getroot()
-    objects = []
-    if len(root.findall('object')) != 1:
-        return objects
-    for obj in root.findall('object'):
-      new_object = {'name': obj.find('name').text}
-      objects.append(new_object)
-    return objects
+trainCSVFileName = "./data/face-mask-detection-dataset/train.csv"
+#testCSVFileName = pd.read_csv("./data/face-mask-detection-dataset/submission.csv")
 
+columns = ["name", "x1", "x2", "y1", "y2", "classname"]
 
-size_of_the_dataset = 853
+trainDF = pd.read_csv(trainCSVFileName, skiprows=1, names=columns)
 
-indexes = list(range(size_of_the_dataset))
-random.shuffle(indexes)
+iterator = trainDF.iterrows()
 
-label_stat = {'with_mask': 0, 'without_mask': 0,
-              'mask_weared_incorrect': 0, 'num_bbox': 0}
+ouputCSVFiles = {}
 
-indexes = list(range(size_of_the_dataset))
-for i in indexes:
-    objects = get_objects(os.path.join(data_folder, 'annotations', 'maksssksksss' + str(i) + '.xml'))
-    for d in objects:
-        label_stat[d['name']] += 1
-        label_stat['num_bbox'] += 1
+for rowIndex in range(len(trainDF)):
+    className = trainDF[columns[5]][rowIndex]
+    if className not in ouputCSVFiles:
+        ouputCSVFiles[className] = []
+    ouputCSVFiles[className].append(rowIndex)
 
 
-print(label_stat)
+def saveCSV(fileName, rows):
+    # for i, row in enumerate(rows):
+    #     record = trainDF[:][rowIndex]
+
+    df = trainDF.iloc[rows, :]
+    df.to_csv(os.path.join(rootDir, fileName+".csv"))
+
+for fileName in list(ouputCSVFiles.keys()):
+    print(f'Creating file.. {fileName}')
+    saveCSV(fileName, ouputCSVFiles[fileName])
