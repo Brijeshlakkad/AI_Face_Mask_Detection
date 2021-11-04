@@ -22,6 +22,8 @@ def get_objects(xml_file):
     annotations = ET.parse(xml_file)
     root = annotations.getroot()
     objects = []
+    if len(root.findall('object')) != 1:
+        return objects
     for obj in root.findall('object'):
       new_object = {'name': obj.find('name').text}
       objects.append(new_object)
@@ -44,5 +46,4 @@ for i in indexes:
         label_stat['num_bbox'] += 1
 
 
-label_stat['num_bbox_per_image'] = label_stat['num_bbox']/size_of_the_dataset
 print(label_stat)
