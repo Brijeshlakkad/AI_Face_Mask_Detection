@@ -24,7 +24,7 @@ root_folder = "./data"
 data_df = pd.read_csv(data_csv_file, skiprows=1, names=columns)
 
 
-def getImageData(folder, image_file, index):
+def getImageData(folder, image_file):
     return Image.open(os.path.join(folder, image_file)).convert('RGB') # Load the image
 
 
