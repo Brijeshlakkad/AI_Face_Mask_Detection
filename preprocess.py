@@ -8,38 +8,20 @@ Created on Wed Nov  3 16:30:46 2021
 import os
 import pandas as pd
 
-rootDir = './data'
+root_dir = './data'
 data_folder = "./data/face-mask-detection-dataset"
 columns = ["name", "x1", "x2", "y1", "y2", "classname"]
 
-if not os.path.isdir(rootDir):
-    os.makedirs(rootDir)
+if not os.path.isdir(root_dir):
+    os.makedirs(root_dir)
 
 def get_df():
     input_file = "train.csv"
     return pd.read_csv(os.path.join(data_folder, input_file),
                         skiprows=1, names=columns)
-
-
-def preview_classes():
-    classes = []
-    preselected_class_count = {
-        "face_with_mask": 0,
-        "mask_colorful": 0,
-        "face_no_mask": 0,
-        "face_with_mask_incorrect": 0,
-        "mask_surgical": 0
-    }
-    train_df = get_df()
-    for row_index in range(len(train_df)):
-        className = train_df[columns[5]][row_index]
-        if className not in classes:
-            classes.append(className)
-        if className in preselected_class_count.keys():
-            preselected_class_count[className] += 1
-    print(classes, preselected_class_count)
-
-
+def get_preprocessed_df():
+    return pd.read_csv(os.path.join(root_dir, "preprocessed", "data.csv"),
+                        skiprows=1, names=["filename", "classname"])
 
 def make_dir(dir_path):
     if not os.path.isdir(dir_path):
@@ -106,12 +88,6 @@ def move_files_using_list(src_dir, class_dir_path, l):
     for file in l:
         copyfile(os.path.join(src_dir, file), os.path.join(class_dir_path, file))
 
-# move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
-# move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
-# save_preselected_class_data(os.path.join(rootDir, 'preprocessed'), "data.csv")
-# extract_same_class_files(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed'), "face_with_mask")
-
-# preview_classes()
 
 def is_file(file_name):
     return file_name != '.DS_Store'
@@ -172,9 +148,33 @@ def create_dataset(src_dir, dest_dir, external_data):
         writer.writerows(class_dict)
 
     print("File created: ", (file_index-seed))
-            
+
+def preview_classes():
+    classes = []
+    preselected_class_count = {
+        "mask_colorful": 0,
+        "face_no_mask": 0,
+        "ffp2_mask": 0,
+        "mask_surgical": 0
+    }
+    train_df = get_preprocessed_df()
+    for row_index in range(len(train_df)):
+        className = train_df[columns[5]][row_index]
+        if className not in classes:
+            classes.append(className)
+        if className in preselected_class_count.keys():
+            preselected_class_count[className] += 1
+    print(classes, preselected_class_count)           
 
 
-create_dataset(os.path.join(data_folder, 'images'),
-    os.path.join(rootDir, 'preprocessed', 'images'),
-    {"path": os.path.join(rootDir, 'ffp2'), "classname": 'ffp2_mask'})
+
+# move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
+# move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
+# save_preselected_class_data(os.path.join(rootDir, 'preprocessed'), "data.csv")
+# extract_same_class_files(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed'), "face_with_mask")
+
+preview_classes()
+
+# create_dataset(os.path.join(data_folder, 'images'),
+#     os.path.join(rootDir, 'preprocessed', 'images'),
+#     {"path": os.path.join(rootDir, 'ffp2'), "classname": 'ffp2_mask'})
