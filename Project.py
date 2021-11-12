@@ -15,7 +15,7 @@ import torchvision.transforms as transforms
 
 columns = ["filename", "classname"]
 
-BASE = "./data"
+BASE = "./data/preprocessed"
 data_csv_file = os.path.join(BASE, "./data.csv")
 data_folder = os.path.join(BASE, "./images")
 root_folder = os.path.join(BASE, "./")
@@ -285,7 +285,7 @@ plot_accuracies(history)
 # In[19]:
 
 
-def plot_losses(history):
+def S(history):
     """ Plot the losses in each epoch"""
     train_losses = [x.get('train_loss') for x in history]
     val_losses = [x['val_loss'] for x in history]

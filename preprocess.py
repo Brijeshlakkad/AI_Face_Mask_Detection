@@ -173,8 +173,8 @@ def preview_classes():
 # save_preselected_class_data(os.path.join(rootDir, 'preprocessed'), "data.csv")
 # extract_same_class_files(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed'), "face_with_mask")
 
-preview_classes()
+# preview_classes()
 
-# create_dataset(os.path.join(data_folder, 'images'),
-#     os.path.join(rootDir, 'preprocessed', 'images'),
-#     {"path": os.path.join(rootDir, 'ffp2'), "classname": 'ffp2_mask'})
+create_dataset(os.path.join(data_folder, 'images'),
+    os.path.join(root_dir, 'preprocessed', 'images'),
+    {"path": os.path.join(root_dir, 'ffp2'), "classname": 'ffp2_mask'})
