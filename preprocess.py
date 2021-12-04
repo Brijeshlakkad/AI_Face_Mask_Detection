@@ -232,14 +232,43 @@ def removeDuplicateRows():
                 "index": row2_index,
                 "classname": dataframe[columns[5]][row2_index]
             })
-            duplicate+=1
-
+            duplicate += 1
 
     print("Duplicates: %s" % duplicate)
 
     with open(os.path.join(root_dir, 'class.json'), 'w') as fp:
         json.dump(duplicate_rows, fp,  indent=4)
 
+
+def removeImagesWithSameClassname():
+    import json
+    root_dir = os.path.join("data", "new_dataset")
+    class_data = None
+    with open(os.path.join(root_dir, 'class_v1.json')) as f_in:
+        class_data = json.load(f_in)
+
+    ignore_images = []
+    for image_d in class_data:
+        p = None
+        consider = True
+        for img_r in class_data[image_d]:
+            if p == None:
+                p = img_r['classname']
+                continue
+            
+            if img_r['classname'] != p:
+                consider = False
+                break
+        
+        if consider:
+            ignore_images.append(image_d)
+    
+    for ignore_image in ignore_images:
+        del class_data[ignore_image]
+    
+    with open(os.path.join(root_dir, 'class.json'), 'w') as fp:
+        json.dump(class_data, fp,  indent=4)
+    
 
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
 # move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
@@ -252,4 +281,5 @@ def removeDuplicateRows():
 #     os.path.join(root_dir, 'preprocessed', 'images'),
 #     {"path": os.path.join(root_dir, 'ffp2'), "classname": 'ffp2_mask'})
 
-removeDuplicateRows()
+
+removeImagesWithSameClassname()
