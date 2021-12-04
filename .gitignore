@@ -1,3 +1,10 @@
 .DS_Store
-data/*
+data/face-mask-detection-dataset
+data/face-mask-detection-dataset/*
+data/ffp2
+data/ffp2/*
+data/preprocessed/images/
+data/preprocessed/model/
+data/preprocessed/original_images/
+data/preprocessed/test/
 .ipynb_checkpoints

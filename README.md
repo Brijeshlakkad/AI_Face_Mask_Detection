@@ -6,11 +6,13 @@
     - model
       - face_mask_detection.pth
     - test
+    - original_images
     - data.csv
-- `data/images` contains the image dataset
+- `data/images` contains the image dataset, compressed images.
 - `data.csv` has the records mapping each image file with its classname
 - `model/face_mask_detection.pth` Trained model
 - `test` Put your image file to predict a class label
+- `original_images` Images before compressing.
 
 # Explanation of project files
 ### Project.py
