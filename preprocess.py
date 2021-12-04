@@ -193,10 +193,52 @@ def deleteNotRequiredImages():
     for file_name in os.listdir(image_dir):
         if file_name not in file_list:
             file_path = os.path.join(image_dir, file_name)
-            copyfile(file_path, os.path.join(root_dir, "not-required", file_name))
+            copyfile(file_path, os.path.join(
+                root_dir, "not-required", file_name))
             os.remove(file_path)
             deleted_files += 1
     print("Moved and deleted %s files" % deleted_files)
+
+
+def removeDuplicateRows():
+    import json
+    root_dir = os.path.join("data", "new_dataset")
+    dataframe = pd.read_csv(os.path.join(root_dir, "train.csv"), skiprows=1, names=[
+                            "name", "x1", "x2", "y1", "y2", "classname"])
+
+    duplicate = 0
+    duplicate_rows = {}
+    for row1_index in range(len(dataframe)):
+        for row2_index in range(len(dataframe)):
+            if row1_index == row2_index:
+                continue
+
+            if dataframe[columns[0]][row1_index] != dataframe[columns[0]][row2_index]:
+                continue
+
+            if dataframe[columns[0]][row1_index] not in duplicate_rows:
+                duplicate_rows[dataframe[columns[0]][row1_index]] = []
+                duplicate_rows[dataframe[columns[0]][row1_index]].append({
+                    "index": row1_index,
+                    "classname": dataframe[columns[5]][row1_index]
+                })
+            else:
+                l = duplicate_rows[dataframe[columns[0]][row1_index]]
+                indices = [i['index'] for i in l]
+                if row2_index in indices:
+                    continue
+
+            duplicate_rows[dataframe[columns[0]][row1_index]].append({
+                "index": row2_index,
+                "classname": dataframe[columns[5]][row2_index]
+            })
+            duplicate+=1
+
+
+    print("Duplicates: %s" % duplicate)
+
+    with open(os.path.join(root_dir, 'class.json'), 'w') as fp:
+        json.dump(duplicate_rows, fp,  indent=4)
 
 
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
@@ -209,4 +251,5 @@ def deleteNotRequiredImages():
 # create_dataset(os.path.join(data_folder, 'images'),
 #     os.path.join(root_dir, 'preprocessed', 'images'),
 #     {"path": os.path.join(root_dir, 'ffp2'), "classname": 'ffp2_mask'})
-deleteNotRequiredImages()
+
+removeDuplicateRows()
