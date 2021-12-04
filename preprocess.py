@@ -269,6 +269,33 @@ def removeImagesWithSameClassname():
     with open(os.path.join(root_dir, 'class.json'), 'w') as fp:
         json.dump(class_data, fp,  indent=4)
     
+def previewClassJSON():
+    import json
+    root_dir = os.path.join("data", "new_dataset")
+    class_data = None
+    with open(os.path.join(root_dir, 'class.json')) as f_in:
+        class_data = json.load(f_in)
+
+    print(len(class_data.keys()))
+
+def moveImagesWithMultipleFaceMask():
+    import json
+    root_dir = os.path.join("data", "new_dataset")
+    class_data = None
+    with open(os.path.join(root_dir, 'class.json')) as f_in:
+        class_data = json.load(f_in)
+        
+    from shutil import copyfile
+    deleted_files = 0
+    image_dir = os.path.join(root_dir, "images")
+    for image_d in class_data:
+        file_path = os.path.join(image_dir, image_d)
+        copyfile(file_path, os.path.join(
+            root_dir, "face-with-multiple-mask", image_d))
+        os.remove(file_path)
+        deleted_files += 1
+    print("Moved and deleted %s files"%deleted_files)
+            
 
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
 # move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
@@ -282,4 +309,4 @@ def removeImagesWithSameClassname():
 #     {"path": os.path.join(root_dir, 'ffp2'), "classname": 'ffp2_mask'})
 
 
-removeImagesWithSameClassname()
+# moveImagesWithMultipleFaceMask()
