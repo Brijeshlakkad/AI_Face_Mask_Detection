@@ -295,7 +295,30 @@ def moveImagesWithMultipleFaceMask():
         os.remove(file_path)
         deleted_files += 1
     print("Moved and deleted %s files"%deleted_files)
-            
+
+def createCSVFile():
+    new_dataset_dir = os.path.join("data", "new_dataset")
+    new_image_dir = os.path.join(new_dataset_dir, "images")
+    new_dataset_df = pd.read_csv(os.path.join(new_dataset_dir, "train.csv"), skiprows=1, names=columns)
+    file_list = os.listdir(new_image_dir)
+    delete_rows = []
+    for row_index in range(len(new_dataset_df)):
+        if new_dataset_df[columns[0]][row_index] not in file_list:
+            delete_rows.append(row_index)
+    new_dataset_df.drop(new_dataset_df.index[delete_rows], inplace=True)
+    new_dataset_df.to_csv(os.path.join(new_dataset_dir, "new_data.csv"))
+        
+       
+# def create_dataset_v2():
+#     new_dataset_dir = os.path.join("data", "new_dataset")
+#     new_dataset_df = pd.read_csv(os.path.join(new_dataset_dir, "train.csv"), skiprows=1, names=columns)
+#     dataset_df = pd.read_csv(os.path.join(new_dataset_dir, "train.csv"), skiprows=1, names=columns)
+#     new_image_dir = os.path.join(new_dataset_dir, "images")
+
+#     new_dataset_df = get_df()
+#     for file_name in os.listdir(new_image_dir):
+#         new_dataset_df[columns[]]
+                        
 
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
 # move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
