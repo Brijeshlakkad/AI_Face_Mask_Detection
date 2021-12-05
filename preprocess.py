@@ -166,10 +166,10 @@ def create_dataset(src_dir, dest_dir, external_data):
 def preview_classes():
     classes = []
     preselected_class_count = {
-        "mask_colorful": 0,
+        "face_with_cloth_mask": 0,
         "face_no_mask": 0,
-        "ffp2_mask": 0,
-        "mask_surgical": 0
+        "face_with_ffp2_mask": 0,
+        "face_with_surgical_mask": 0
     }
     train_df = get_preprocessed_df()
     for row_index in range(len(train_df)):
@@ -255,20 +255,21 @@ def removeImagesWithSameClassname():
             if p == None:
                 p = img_r['classname']
                 continue
-            
+
             if img_r['classname'] != p:
                 consider = False
                 break
-        
+
         if consider:
             ignore_images.append(image_d)
-    
+
     for ignore_image in ignore_images:
         del class_data[ignore_image]
-    
+
     with open(os.path.join(root_dir, 'class.json'), 'w') as fp:
         json.dump(class_data, fp,  indent=4)
-    
+
+
 def previewClassJSON():
     import json
     root_dir = os.path.join("data", "new_dataset")
@@ -278,13 +279,14 @@ def previewClassJSON():
 
     print(len(class_data.keys()))
 
+
 def moveImagesWithMultipleFaceMask():
     import json
     root_dir = os.path.join("data", "new_dataset")
     class_data = None
     with open(os.path.join(root_dir, 'class.json')) as f_in:
         class_data = json.load(f_in)
-        
+
     from shutil import copyfile
     deleted_files = 0
     image_dir = os.path.join(root_dir, "images")
@@ -294,38 +296,94 @@ def moveImagesWithMultipleFaceMask():
             root_dir, "face-with-multiple-mask", image_d))
         os.remove(file_path)
         deleted_files += 1
-    print("Moved and deleted %s files"%deleted_files)
+    print("Moved and deleted %s files" % deleted_files)
+
 
 def createCSVFile():
     new_dataset_dir = os.path.join("data", "new_dataset")
     new_image_dir = os.path.join(new_dataset_dir, "images")
-    new_dataset_df = pd.read_csv(os.path.join(new_dataset_dir, "train.csv"), skiprows=1, names=columns)
+    new_dataset_df = pd.read_csv(os.path.join(
+        new_dataset_dir, "train.csv"), skiprows=1, names=columns)
     file_list = os.listdir(new_image_dir)
     delete_rows = []
     for row_index in range(len(new_dataset_df)):
         if new_dataset_df[columns[0]][row_index] not in file_list:
             delete_rows.append(row_index)
     new_dataset_df.drop(new_dataset_df.index[delete_rows], inplace=True)
-    new_dataset_df.to_csv(os.path.join(new_dataset_dir, "new_data.csv"))
-        
-       
-# def create_dataset_v2():
-#     new_dataset_dir = os.path.join("data", "new_dataset")
-#     new_dataset_df = pd.read_csv(os.path.join(new_dataset_dir, "train.csv"), skiprows=1, names=columns)
-#     dataset_df = pd.read_csv(os.path.join(new_dataset_dir, "train.csv"), skiprows=1, names=columns)
-#     new_image_dir = os.path.join(new_dataset_dir, "images")
+    new_dataset_df.to_csv(os.path.join(new_dataset_dir, "data.csv"))
 
-#     new_dataset_df = get_df()
-#     for file_name in os.listdir(new_image_dir):
-#         new_dataset_df[columns[]]
-                        
+def deleteDuplicateRows():
+    new_dataset_dir = os.path.join("data", "new_dataset")
+    new_dataset_df = pd.read_csv(os.path.join(
+        new_dataset_dir, "data.csv"), skiprows=1, names=columns)
+
+    delete_rows = []
+    file_list = []
+    for row_index in range(len(new_dataset_df)):
+        if new_dataset_df[columns[0]][row_index] not in file_list:
+            file_list.append(new_dataset_df[columns[0]][row_index])
+        else:
+            delete_rows.append(row_index)
+            
+    new_dataset_df.drop(new_dataset_df.index[delete_rows], inplace=True)
+    new_dataset_df.to_csv(os.path.join(new_dataset_dir, "new_data.csv"))
+
+
+def create_dataset_v2():
+    new_columns = ["filename", "classname"]
+    dest_dataset_dir = os.path.join("data", "preprocessed")
+    dest_image_dir = os.path.join(dest_dataset_dir, "images")
+    make_dir(dest_dataset_dir)
+    make_dir(dest_image_dir)
+
+    new_dataset_dir = os.path.join("data", "new_dataset")
+    new_dataset_df = pd.read_csv(os.path.join(
+        new_dataset_dir, "new_data.csv"), skiprows=1, names=columns)
+    new_image_dir = os.path.join(new_dataset_dir, "images")
+
+    dataset_dir = os.path.join("data", "dataset")
+    dataset_df = pd.read_csv(os.path.join(
+        dataset_dir, "data.csv"), skiprows=1, names=new_columns)
+    image_dir = os.path.join(dataset_dir, "images")
+
+    from shutil import copyfile
+
+    seed = 1000
+    file_index = seed
+
+    # move files
+    for row_index in range(len(dataset_df)):
+        file_name = dataset_df[new_columns[0]][row_index]
+        copyfile(os.path.join(image_dir, file_name),
+                 os.path.join(dest_image_dir, file_name))
+        file_index += 1
+
+    for row_index in range(len(new_dataset_df)):
+        file_name = new_dataset_df[columns[0]][row_index]
+        new_file_name = str(file_index)+'.'+file_name.split(".")[-1]
+        copyfile(os.path.join(new_image_dir, file_name),
+                 os.path.join(dest_image_dir, new_file_name))
+        new_row = {}
+        new_row[new_columns[0]] = new_file_name
+        new_row[new_columns[1]] = new_dataset_df[columns[5]][row_index]
+        dataset_df = dataset_df.append(new_row, ignore_index = True)
+        file_index += 1
+
+    dataset_df.replace("mask_colorful", "face_with_cloth_mask", inplace=True)
+    dataset_df.replace("mask_surgical", "face_with_surgical_mask", inplace=True)
+    dataset_df.replace("ffp2_mask", "face_with_ffp2_mask", inplace=True)
+    dataset_df.to_csv(os.path.join(dest_dataset_dir, 'data.csv'))
+
+
+# deleteDuplicateRows()
+# create_dataset_v2()
 
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
 # move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
 # save_preselected_class_data(os.path.join(rootDir, 'preprocessed'), "data.csv")
 # extract_same_class_files(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed'), "face_with_mask")
 
-# preview_classes()
+preview_classes()
 
 # create_dataset(os.path.join(data_folder, 'images'),
 #     os.path.join(root_dir, 'preprocessed', 'images'),
