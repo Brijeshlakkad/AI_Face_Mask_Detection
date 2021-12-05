@@ -390,6 +390,34 @@ def exctraFilesFromSubDir():
             copyfile(os.path.join(s_dir, file_name), os.path.join(dest_dir, new_file_name))
             file_index+=1
 
+
+def deleteFFP2Data():
+    from shutil import copyfile
+    new_columns = ["filename", "classname"]
+    dest_dataset_dir = os.path.join("data", "preprocessed")
+    make_dir(dest_dataset_dir)
+    dataset_dir = os.path.join("data", "before_removing_ffp2")
+    image_dir = os.path.join(dataset_dir, "images")
+    ffp2_dir = os.path.join(dataset_dir, 'removed_ffp2')
+    make_dir(ffp2_dir)
+
+    dataset_df = pd.read_csv(os.path.join(
+        dataset_dir, "data.csv"), skiprows=1, names=new_columns)
+
+    ffp2_rows = []
+    for row_index in range(len(dataset_df)):
+        if dataset_df[new_columns[1]][row_index] == 'face_with_ffp2_mask':
+            file_name = dataset_df[new_columns[0]][row_index]
+            file_path = os.path.join(image_dir, file_name)
+            copyfile(file_path, os.path.join(ffp2_dir, file_name))
+            os.remove(file_path)
+            ffp2_rows=[row_index]
+    
+    dataset_df.drop(dataset_df.index[ffp2_rows], inplace=True)
+    dataset_df.to_csv(os.path.join(dest_dataset_dir, 'data.csv'))
+
+
+
 # deleteDuplicateRows()
 # create_dataset_v2()
 # exctraFilesFromSubDir()
