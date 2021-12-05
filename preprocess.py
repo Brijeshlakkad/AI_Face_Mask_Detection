@@ -459,10 +459,7 @@ def create_dataset_v3():
         new_row[new_columns[0]] = new_file_name
         new_row[new_columns[1]] = 'face_with_ffp2_mask'
         csv_data.append(new_row)
-
-        
-
-    # print(class_dict)
+    
     with open(os.path.join(dest_dataset_dir, "data.csv"), 'w') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=new_columns)
         writer.writeheader()
@@ -470,21 +467,43 @@ def create_dataset_v3():
 
     print("File created: ", (file_index-seed))
 
+def move_class_data(num, class_name):
+    from shutil import copyfile
+    new_columns = ["filename", "classname"]
+    dest_dataset_dir = os.path.join("data", "preprocessed")
+    make_dir(dest_dataset_dir)
+    
+    dataset_dir = os.path.join("data", "before_removing_class")
+    image_dir = os.path.join(dataset_dir, "images")
+    dataset_df = pd.read_csv(os.path.join(dataset_dir, "data.csv"), skiprows=1, names=new_columns)
+    other_image_dir = os.path.join(dataset_dir, class_name)
+    make_dir(other_image_dir)
 
-# create_dataset_v3()
-# deleteDuplicateRows()
-# create_dataset_v2()
-# exctraFilesFromSubDir()
+    other_class_rows = []
+    count = 0
+    for row_index in range(len(dataset_df)):
+        if dataset_df[new_columns[1]][row_index] == class_name:
+            file_name = dataset_df[new_columns[0]][row_index]
+            file_path = os.path.join(image_dir, file_name)
+            copyfile(file_path, os.path.join(other_image_dir, file_name))
+            os.remove(file_path)
+            other_class_rows.append(row_index)
+            count+=1
+        
+        if count >= num:
+            break
+
+    dataset_df.drop(dataset_df.index[other_class_rows], inplace=True)
+    dataset_df.to_csv(os.path.join(dest_dataset_dir, 'data.csv'))
+
+# move_class_data(663, 'face_no_mask')
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
 # move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
 # save_preselected_class_data(os.path.join(rootDir, 'preprocessed'), "data.csv")
 # extract_same_class_files(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed'), "face_with_mask")
-
-# preview_classes()
-
 # create_dataset(os.path.join(data_folder, 'images'),
 #     os.path.join(root_dir, 'preprocessed', 'images'),
 #     {"path": os.path.join(root_dir, 'ffp2'), "classname": 'ffp2_mask'})
 
 
-# moveImagesWithMultipleFaceMask()
+# preview_classes()
