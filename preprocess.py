@@ -374,16 +374,31 @@ def create_dataset_v2():
     dataset_df.replace("ffp2_mask", "face_with_ffp2_mask", inplace=True)
     dataset_df.to_csv(os.path.join(dest_dataset_dir, 'data.csv'))
 
+def exctraFilesFromSubDir():
+    from shutil import copyfile
+    dest_dir = os.path.join("data", "new_new_ffp2")
+    make_dir(dest_dir)
+    source_dir = os.path.join('data', 'ffp2_folder')
+    make_dir(source_dir)
+    file_index = 1000
+    for folder in os.listdir(source_dir):
+        if folder == '.DS_Store':
+            continue
+        s_dir = os.path.join(source_dir, folder)
+        for file_name in os.listdir(s_dir):
+            new_file_name = str(file_index)+'.'+file_name.split(".")[-1]
+            copyfile(os.path.join(s_dir, file_name), os.path.join(dest_dir, new_file_name))
+            file_index+=1
 
 # deleteDuplicateRows()
 # create_dataset_v2()
-
+# exctraFilesFromSubDir()
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
 # move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
 # save_preselected_class_data(os.path.join(rootDir, 'preprocessed'), "data.csv")
 # extract_same_class_files(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed'), "face_with_mask")
 
-preview_classes()
+# preview_classes()
 
 # create_dataset(os.path.join(data_folder, 'images'),
 #     os.path.join(root_dir, 'preprocessed', 'images'),
