@@ -22,6 +22,8 @@ import torchvision.transforms as transforms
 from sklearn.model_selection import KFold
 from torch.utils.data.dataset import Subset
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, classification_report
+import seaborn as sns
 
 columns = ["filename", "classname"]
 
@@ -75,10 +77,7 @@ class FaceMaskDataset(Dataset):
             image = self.conversion(image)
         return image, self.dataset[index]['target']
 
-"""train_split_percentage = 0.75
-val_split_percentage = 0.15
-test_split_percentage = 0.1"""
-size_of_the_dataset = int(data_df.shape[0]/10)
+size_of_the_dataset = int(data_df.shape[0]/5)
 
 
 print("size_of_the_dataset", size_of_the_dataset)
@@ -89,17 +88,6 @@ num_of_classes = len(classes.keys())
 indexes = list(range(size_of_the_dataset))
 random.shuffle(indexes)
 print(len(indexes))
-
-"""
-train_indexes = indexes[:int(train_split_percentage*len(indexes))]
-val_indexes = indexes[int(train_split_percentage*len(indexes))                      :int((train_split_percentage + val_split_percentage)*len(indexes))]
-test_indexes = indexes[int(
-    (train_split_percentage + val_split_percentage)*len(indexes)):]
-
-
-print(f"Effective train split = {len(train_indexes)/len(indexes)*100}%")
-print(f"Effective val split = {len(val_indexes)/len(indexes)*100}%")
-print(f"Effective test split = {len(test_indexes)/len(indexes)*100}%")"""
 
 transform = transforms.Compose(
     [transforms.Resize((250, 250)),
@@ -230,102 +218,17 @@ def fit(epochs, lr, model, train_loader, history, opt_func = torch.optim.SGD):
         result = {}
         result['train_loss'] = torch.stack(train_losses).mean().item()
         result['train_accuracy'] = train_correct / len(train_loader.dataset) * 100
-
-        history['train_loss'].append(result['train_loss'])
-        history['train_accuracy'].append(result['train_accuracy'])
-
+        
         model.epoch_end(epoch, result)
         #history.append(result)
-    
+
+    history['train_loss'] = result['train_loss']
+    history['train_accuracy'] = result['train_accuracy']
+
     return history
 
 model = CNN()
 model = model.to(device)
-
-def reset_weights(m):
-    if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-        m.reset_parameters()
-
-def KFold_creator(model,dataset,batch_size,device):
-  kfold = KFold(n_splits=10, shuffle=True,random_state=None)
-  fold_value = 1;
-  foldperf={}
-  for fold, (train_idx,test_idx) in enumerate(kfold.split(dataset)):
-    print('Fold {}'.format(fold + 1))
-    train_data = Subset(dataset,train_idx)
-    test_data = Subset(dataset,test_idx)
-
-    train_loader = torch.utils.data.DataLoader(dataset=train_data,batch_size=batch_size,num_workers=0,shuffle=True)
-    test_loader = torch.utils.data.DataLoader(dataset=test_data,batch_size=batch_size,num_workers=0,shuffle=True)
-    
-    model.apply(reset_weights)
-
-    history = {'train_loss': [], 'test_loss': 0,'train_accuracy':[],'test_accuracy': 0}
-
-
-    history = fit(10, 0.001, model, train_loader, history, torch.optim.Adam)
-    history = test_phase(model,test_loader,device,history)
-
-    foldperf['fold{}'.format(fold+1)] = history   
-  
-  return foldperf
-
-foldperf = KFold_creator(model,dataset,batch_size,device)
-
-testLoss,trainLoss,testAccuracy,trainAccuracy=[],[],[],[]
-k=10
-for f in range(1,k+1):
-  trainLoss.append(np.mean(foldperf['fold{}'.format(f)]['train_loss']))
-  #testl_f.append(foldperf['fold{}'.format(f)]['test_loss'])
-  trainAccuracy.append(np.mean(foldperf['fold{}'.format(f)]['train_accuracy']))
-  #testa_f.append(foldperf['fold{}'.format(f)]['test_accuracy'])
-  testLoss.append(foldperf['fold{}'.format(f)]['test_loss'])
-  testAccuracy.append(foldperf['fold{}'.format(f)]['test_accuracy'])
-
-print('Performance of {} fold cross validation'.format(k))
-print("Average Training Loss: {:.4f} \t Average Test Loss: {:.4f} \t Average Training Acc: {:.4f} \t Average Test Acc: {:.4f}".format(np.mean(trainLoss),sum(testLoss)/k,np.mean(trainAccuracy),sum(testAccuracy)/k))
-
-#history = fit(50, 0.001, model, train_loader, val_loader, torch.optim.Adam)
-
-torch.save(model, model_path)
-
-import matplotlib.pyplot as plt
-
-def plot_accuracies(history):
-    """ Plot the history of accuracies"""
-    #accuracies = [x['val_acc'] for x in history]
-    plt.plot(history, '-x')
-    plt.xlabel('epoch')
-    plt.ylabel('accuracy')
-    plt.title('Accuracy vs. No. of epochs');
-    
-
-plot_accuracies(trainAccuracy)
-
-def plot_losses(history):
-    """ Plot the losses in each epoch"""
-    train_losses = [x.get('train_loss') for x in history]
-    val_losses = [x['val_loss'] for x in history]
-    plt.plot(train_losses, '-bx')
-    plt.plot(val_losses, '-rx')
-    plt.xlabel('epoch')
-    plt.ylabel('loss')
-    plt.legend(['Training', 'Validation'])
-    plt.title('Loss vs. No. of epochs');
-
-plot_losses(history)
-
-import copy
-model.load_state_dict(copy.deepcopy(torch.load(model_path, device)))
-model.eval()
-
-"""test_dataset = FaceMaskDataset(test_indexes, conversion=transform)
-print("Loading test set")
-test_loader = torch.utils.data.DataLoader(
-    dataset=test_dataset, batch_size=batch_size, shuffle=True, num_workers=0)"""
-
-from sklearn.metrics import confusion_matrix, classification_report
-import seaborn as sns
 
 def test_phase(model,test_loader, device, history):
 
@@ -383,6 +286,86 @@ def test_phase(model,test_loader, device, history):
   print(classification_report(y_true,y_preds))
 
   return history
+
+def reset_weights(m):
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+        m.reset_parameters()
+
+def KFold_creator(model,dataset,batch_size,device):
+  kfold = KFold(n_splits=10, shuffle=True,random_state=None)
+  fold_value = 1;
+  foldperf={}
+  for fold, (train_idx,test_idx) in enumerate(kfold.split(dataset)):
+    print('Fold {}'.format(fold + 1))
+    train_data = Subset(dataset,train_idx)
+    test_data = Subset(dataset,test_idx)
+
+    train_loader = torch.utils.data.DataLoader(dataset=train_data,batch_size=batch_size,num_workers=0,shuffle=True)
+    test_loader = torch.utils.data.DataLoader(dataset=test_data,batch_size=batch_size,num_workers=0,shuffle=True)
+    
+    #model.apply(reset_weights)
+
+    history = {'train_loss': 0, 'test_loss': 0,'train_accuracy': 0,'test_accuracy': 0}
+
+
+    history = fit(10, 0.001, model, train_loader, history, torch.optim.Adam)
+    history = test_phase(model,test_loader,device,history)
+
+    foldperf['fold{}'.format(fold+1)] = history   
+  
+  return foldperf
+
+foldperf = KFold_creator(model,dataset,batch_size,device)
+
+testLoss,trainLoss,testAccuracy,trainAccuracy=[],[],[],[]
+k=10
+for f in range(1,k+1):
+  trainLoss.append(foldperf['fold{}'.format(f)]['train_loss'])
+  trainAccuracy.append(foldperf['fold{}'.format(f)]['train_accuracy'])
+  testLoss.append(foldperf['fold{}'.format(f)]['test_loss'])
+  testAccuracy.append(foldperf['fold{}'.format(f)]['test_accuracy'])
+
+print('Performance of {} fold cross validation'.format(k))
+print("Average Training Loss: {:.4f} \t Average Test Loss: {:.4f} \t Average Training Acc: {:.4f} \t Average Test Acc: {:.4f}".format(np.mean(trainLoss),sum(testLoss)/k,np.mean(trainAccuracy),sum(testAccuracy)/k))
+
+#history = fit(50, 0.001, model, train_loader, val_loader, torch.optim.Adam)
+
+torch.save(model, model_path)
+
+import matplotlib.pyplot as plt
+
+def plot_accuracies(history):
+    """ Plot the history of accuracies"""
+    #accuracies = [x['val_acc'] for x in history]
+    plt.plot(history, '-x')
+    plt.xlabel('epoch')
+    plt.ylabel('accuracy')
+    plt.title('Accuracy vs. No. of epochs');
+    
+
+plot_accuracies(trainAccuracy)
+
+def plot_losses(history):
+    """ Plot the losses in each epoch"""
+    train_losses = [x.get('train_loss') for x in history]
+    val_losses = [x['val_loss'] for x in history]
+    plt.plot(train_losses, '-bx')
+    plt.plot(val_losses, '-rx')
+    plt.xlabel('epoch')
+    plt.ylabel('loss')
+    plt.legend(['Training', 'Validation'])
+    plt.title('Loss vs. No. of epochs');
+
+plot_losses(history)
+
+import copy
+model.load_state_dict(copy.deepcopy(torch.load(model_path, device)))
+model.eval()
+
+"""test_dataset = FaceMaskDataset(test_indexes, conversion=transform)
+print("Loading test set")
+test_loader = torch.utils.data.DataLoader(
+    dataset=test_dataset, batch_size=batch_size, shuffle=True, num_workers=0)"""
 
 def label_to_classname(label):
   for classname in classes.keys():
