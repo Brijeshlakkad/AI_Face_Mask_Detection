@@ -354,12 +354,13 @@ def create_dataset_v2():
     # move files
     for row_index in range(len(dataset_df)):
         file_name = dataset_df[new_columns[0]][row_index]
+        file_index += 1
         copyfile(os.path.join(image_dir, file_name),
                  os.path.join(dest_image_dir, file_name))
-        file_index += 1
 
     for row_index in range(len(new_dataset_df)):
         file_name = new_dataset_df[columns[0]][row_index]
+        file_index += 1
         new_file_name = str(file_index)+'.'+file_name.split(".")[-1]
         copyfile(os.path.join(new_image_dir, file_name),
                  os.path.join(dest_image_dir, new_file_name))
@@ -367,7 +368,6 @@ def create_dataset_v2():
         new_row[new_columns[0]] = new_file_name
         new_row[new_columns[1]] = new_dataset_df[columns[5]][row_index]
         dataset_df = dataset_df.append(new_row, ignore_index = True)
-        file_index += 1
 
     dataset_df.replace("mask_colorful", "face_with_cloth_mask", inplace=True)
     dataset_df.replace("mask_surgical", "face_with_surgical_mask", inplace=True)
@@ -411,13 +411,67 @@ def deleteFFP2Data():
             file_path = os.path.join(image_dir, file_name)
             copyfile(file_path, os.path.join(ffp2_dir, file_name))
             os.remove(file_path)
-            ffp2_rows=[row_index]
+            ffp2_rows.append(row_index)
     
     dataset_df.drop(dataset_df.index[ffp2_rows], inplace=True)
     dataset_df.to_csv(os.path.join(dest_dataset_dir, 'data.csv'))
 
+def create_dataset_v3():
+    import csv
+    from shutil import copyfile
+
+    new_columns = ["filename", "classname"]
+    dest_dataset_dir = os.path.join("data", "preprocessed")
+    dest_image_dir = os.path.join(dest_dataset_dir, "images")
+    make_dir(dest_image_dir)
+
+    dataset_dir = os.path.join("data", "before_adding_ffp2")
+    image_dir = os.path.join(dataset_dir, "images")
+    dataset_df = pd.read_csv(os.path.join(dataset_dir, "data.csv"), skiprows=1, names=new_columns)
+    
+    ffp2_dir = os.path.join("data", 'ffp2')
+
+    seed = 1000
+    file_index = seed
+
+    csv_data = []
+    for row_index in range(len(dataset_df)):
+        file_index+=1
+        file_name = dataset_df[new_columns[0]][row_index]
+        new_file_name = str(file_index)+'.'+file_name.split(".")[-1]
+
+        file_path = os.path.join(image_dir, file_name)
+        copyfile(file_path, os.path.join(dest_image_dir, new_file_name))
+
+        new_row = {}
+        new_row[new_columns[0]] = new_file_name
+        new_row[new_columns[1]] = dataset_df[new_columns[1]][row_index]
+        csv_data.append(new_row)
+    
+    for file_name in os.listdir(ffp2_dir):
+        if not is_file(file_name):
+            continue
+        file_index += 1
+        new_file_name = str(file_index)+'.'+file_name.split(".")[-1]
+        copyfile(os.path.join(ffp2_dir, file_name),
+                    os.path.join(dest_image_dir, new_file_name))
+        new_row = {}
+        new_row[new_columns[0]] = new_file_name
+        new_row[new_columns[1]] = 'face_with_ffp2_mask'
+        csv_data.append(new_row)
+
+        
+
+    # print(class_dict)
+    with open(os.path.join(dest_dataset_dir, "data.csv"), 'w') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=new_columns)
+        writer.writeheader()
+        writer.writerows(csv_data)
+
+    print("File created: ", (file_index-seed))
 
 
+# create_dataset_v3()
 # deleteDuplicateRows()
 # create_dataset_v2()
 # exctraFilesFromSubDir()
