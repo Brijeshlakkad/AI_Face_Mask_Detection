@@ -511,6 +511,65 @@ def find_file():
             copyfile(os.path.join(image_dir, file_name), os.path.join(dest_image_dir, file_name))
 
 
+def create_dataset_v4(class_name, class_dir_name):
+    import csv
+    from shutil import copyfile
+
+    new_columns = ["filename", "classname", "gender", "age"]
+    dest_dataset_dir = os.path.join("data", "preprocessed")
+    dest_image_dir = os.path.join(dest_dataset_dir, "images")
+    make_dir(dest_image_dir)
+
+    dataset_dir = os.path.join("data", "before_processing")
+    image_dir = os.path.join(dataset_dir, "images")
+    dataset_df = pd.read_csv(os.path.join(dataset_dir, "data.csv"), skiprows=1, names=new_columns)
+
+    class_dir = os.path.join(dataset_dir, class_dir_name)
+    make_dir(class_dir)
+
+    seed = 1000
+    file_index = seed
+
+    csv_data = []
+    for row_index in range(len(dataset_df)):
+        file_index+=1
+        file_name = dataset_df[new_columns[0]][row_index]
+        new_file_name = str(file_index)+'.'+file_name.split(".")[-1]
+
+        file_path = os.path.join(image_dir, file_name)
+        copyfile(file_path, os.path.join(dest_image_dir, new_file_name))
+
+        new_row = {}
+        new_row[new_columns[0]] = new_file_name
+        new_row[new_columns[1]] = dataset_df[new_columns[1]][row_index]
+        new_row[new_columns[2]] = dataset_df[new_columns[2]][row_index]
+        new_row[new_columns[3]] = dataset_df[new_columns[3]][row_index]
+        csv_data.append(new_row)
+    
+    for file_name in os.listdir(class_dir):
+        if not is_file(file_name):
+            continue
+        file_index += 1
+        new_file_name = str(file_index)+'.'+file_name.split(".")[-1]
+        copyfile(os.path.join(class_dir, file_name),
+                    os.path.join(dest_image_dir, new_file_name))
+        new_row = {}
+        new_row[new_columns[0]] = new_file_name
+        new_row[new_columns[1]] = class_name
+        new_row[new_columns[2]] = ''
+        new_row[new_columns[3]] = ''
+        csv_data.append(new_row)
+    
+    with open(os.path.join(dest_dataset_dir, "data.csv"), 'w') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=new_columns)
+        writer.writeheader()
+        writer.writerows(csv_data)
+
+    print("File created: ", (file_index-seed))
+
+
+# create_dataset_v4('face_with_surgical_mask', 'surgical')
+
 # move_class_data(663, 'face_no_mask')
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
 # move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
