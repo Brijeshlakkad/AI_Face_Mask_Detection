@@ -496,6 +496,21 @@ def move_class_data(num, class_name):
     dataset_df.drop(dataset_df.index[other_class_rows], inplace=True)
     dataset_df.to_csv(os.path.join(dest_dataset_dir, 'data.csv'))
 
+def find_file():
+    from shutil import copyfile
+    l = [
+    ]
+    dataset_dir = os.path.join("data", "preprocessed")
+    image_dir = os.path.join(dataset_dir, "images")
+    dest_image_dir = os.path.join(dataset_dir, "crop")
+    make_dir(dest_image_dir)
+
+    for file_name in os.listdir(image_dir):
+        x_file_name = file_name.split(".")[0]
+        if x_file_name in l:
+            copyfile(os.path.join(image_dir, file_name), os.path.join(dest_image_dir, file_name))
+
+
 # move_class_data(663, 'face_no_mask')
 # move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
 # move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
