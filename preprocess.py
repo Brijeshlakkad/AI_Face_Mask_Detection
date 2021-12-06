@@ -24,7 +24,7 @@ def get_df():
 
 def get_preprocessed_df():
     return pd.read_csv(os.path.join(root_dir, "preprocessed", "data.csv"),
-                       skiprows=1, names=["filename", "classname"])
+                       skiprows=1, names=["filename", "classname", "gender", "age"])
 
 
 def make_dir(dir_path):
