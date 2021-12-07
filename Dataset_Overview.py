@@ -14,7 +14,7 @@ data_folder = "./data/face-mask-detection-dataset"
 # In[2]:
 
 
-columns = ["filename", "classname"]
+columns = ["filename", "classname", "gender", "age"]
 def get_preprocessed_df():
     return pd.read_csv(os.path.join(root_dir, "preprocessed", "data.csv"),
                         skiprows=1, names=columns)
@@ -26,10 +26,10 @@ def get_preprocessed_df():
 def preview_classes():
     classes = []
     preselected_class_count = {
-        "mask_colorful": 0,
+        "face_with_cloth_mask": 0,
         "face_no_mask": 0,
-        "ffp2_mask": 0,
-        "mask_surgical": 0
+        "face_with_ffp2_mask": 0,
+        "face_with_surgical_mask": 0
     }
     train_df = get_preprocessed_df()
     for row_index in range(len(train_df)):

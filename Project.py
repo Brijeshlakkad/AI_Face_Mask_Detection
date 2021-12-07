@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[3]:
-
-
 import pandas as pd
 import os
 from torch.utils.data import Dataset
@@ -12,8 +9,12 @@ import random
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
+from sklearn.model_selection import KFold
+from torch.utils.data.dataset import Subset
+from sklearn.metrics import confusion_matrix, classification_report
+import numpy as np
 
-columns = ["filename", "classname"]
+columns = ["filename", "classname", "gender", "age"]
 
 BASE = "./data/preprocessed"
 data_csv_file = os.path.join(BASE, "./data.csv")
@@ -21,9 +22,6 @@ data_folder = os.path.join(BASE, "./images")
 root_folder = os.path.join(BASE, "./")
 
 data_df = pd.read_csv(data_csv_file, skiprows=1, names=columns)
-
-
-# In[4]:
 
 
 # get image data
@@ -36,30 +34,77 @@ def make_dir(dir_path):
         os.makedirs(dir_path)
 
 model_path = os.path.join(root_folder, 'model', 'face_mask_detection.pth')
-make_dir(model_path)
+# make_dir(model_path)
+
+
+# In[4]:
+
 
 # predefined classes
 classes = {
-    "mask_colorful": 0,
+    "face_with_cloth_mask": 0,
     "face_no_mask": 1,
-    "mask_surgical": 2,
-    "ffp2_mask": 3
+    "face_with_ffp2_mask": 2,
+    "face_with_surgical_mask": 3
 }
+
+genderGroup = {
+    '0': 'Female',
+    '1': 'Male'
+}
+
+ageGroup = {
+    '0': '0-30 Age group',
+    '1': '30-60 Age Group'
+}
+
+def to_gender_str(label):
+  return genderGroup[label]
+
+def to_age_str(label):
+  return ageGroup[label]
+
+def to_gender_str(label):
+  return genderGroup[label]
+
+def to_age_str(label):
+  return ageGroup[label]
+
+def to_face_mask_type_str(label):
+  for classname in classes.keys():
+    if classes[classname] == label:
+      return classname
+  return 'NULL'
+
+def to_face_mask_type_label(classname):
+  return classes[classname]
+
+def to_gender_label(classname):
+  for label in genderGroup.keys():
+    if genderGroup[label] == classname:
+      return label
+  return -1
+
+def to_age_label(classname):
+  for label in genderGroup.keys():
+    if genderGroup[label] == classname:
+      return label
+  return -1
 
 
 # In[5]:
 
 
 class FaceMaskDataset(Dataset):
-    dataset = []
-    conversion = None
-
     def __init__(self, indexes, conversion=transforms.ToTensor()):
+        self.dataset = []
         self.conversion = conversion
         for rowIndex in indexes:
             sample = {}
             sample['image'] = getImageData(data_folder, data_df[columns[0]][rowIndex])
-            sample['target'] = classes[data_df[columns[1]][rowIndex]]
+            sample['target'] = to_face_mask_type_label(data_df[columns[1]][rowIndex])
+            sample['gender'] = str(int(data_df[columns[2]][rowIndex]) - 1)
+            sample['age'] = str(int(data_df[columns[3]][rowIndex]) - 1)
             self.dataset.append(sample)
 
     def __len__(self):
@@ -69,36 +114,31 @@ class FaceMaskDataset(Dataset):
         image = self.dataset[index]['image']
         if self.conversion is not None:
             image = self.conversion(image)
-        return image, self.dataset[index]['target']
+        return image, self.dataset[index]['target'], self.dataset[index]['gender'], self.dataset[index]['age']
 
 
 # In[6]:
 
 
-train_split_percentage = 0.75
-val_split_percentage = 0.15
-test_split_percentage = 0.1
-size_of_the_dataset = int(data_df.shape[0])
+from sklearn.model_selection import train_test_split
 
+size_of_the_dataset = int(data_df.shape[0])
 print("size_of_the_dataset", size_of_the_dataset)
 
-
-batch_size = 25
+batch_size = 20
 num_of_classes = len(classes.keys())
 
 indexes = list(range(size_of_the_dataset))
-random.shuffle(indexes)
 
+train_indexes, gtest_indexes = train_test_split(indexes, test_size=0.3, shuffle=True)
 
-train_indexes = indexes[:int(train_split_percentage*len(indexes))]
-val_indexes = indexes[int(train_split_percentage*len(indexes))                      :int((train_split_percentage + val_split_percentage)*len(indexes))]
-test_indexes = indexes[int(
-    (train_split_percentage + val_split_percentage)*len(indexes)):]
-
+print(f"Effective train split = {len(train_indexes)}")
+# print(f"Effective val split = {len(val_indexes)}")
+print(f"Effective test split = {len(gtest_indexes)}")
 
 print(f"Effective train split = {len(train_indexes)/len(indexes)*100}%")
-print(f"Effective val split = {len(val_indexes)/len(indexes)*100}%")
-print(f"Effective test split = {len(test_indexes)/len(indexes)*100}%")
+# print(f"Effective val split = {len(val_indexes)/len(indexes)*100}%")
+print(f"Effective test split = {len(gtest_indexes)/len(indexes)*100}%")
 
 
 # In[7]:
@@ -106,9 +146,7 @@ print(f"Effective test split = {len(test_indexes)/len(indexes)*100}%")
 
 transform = transforms.Compose(
     [transforms.Resize((250, 250)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                       std=[0.229, 0.224, 0.225])])
+        transforms.ToTensor()])
 
 
 # In[8]:
@@ -116,22 +154,27 @@ transform = transforms.Compose(
 
 print("Loading training set")
 train_dataset = FaceMaskDataset(train_indexes, conversion=transform)
-print("Loading validation set")
-val_dataset = FaceMaskDataset(val_indexes, conversion=transform)
-train_loader = torch.utils.data.DataLoader(
-    dataset=train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-val_loader = torch.utils.data.DataLoader(
-    dataset=val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
 
 # In[9]:
 
 
+print("Loading test set")
+
+gtest_dataset = FaceMaskDataset(gtest_indexes, conversion=transform)
+# gtest_loader = torch.utils.data.DataLoader(dataset=gtest_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+
+
+# In[10]:
+
+
+# import os
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Using device:', device)
 
 
-# In[10]:
+# In[11]:
 
 
 import torch.nn as nn
@@ -139,11 +182,13 @@ import torch.nn.functional as F
 
 class FaceMaskClassificationBase(nn.Module):
     def training_step(self, batch):
-        images, labels = batch 
+        images, labels, _, _ = batch 
         images, labels = images.to(device), labels.to(device)
         out = self(images)                  # Generate predictions
         loss = F.cross_entropy(out, labels) # Calculate loss
-        return loss
+        scores, predictions = torch.max(out.data, 1)
+        train_correct = (predictions == labels).sum().item()
+        return loss, train_correct
     
     def validation_step(self, batch):
         images, labels = batch 
@@ -161,40 +206,54 @@ class FaceMaskClassificationBase(nn.Module):
         return {'val_loss': epoch_loss.item(), 'val_acc': epoch_acc.item()}
     
     def epoch_end(self, epoch, result):
-        print("Epoch [{}], train_loss: {:.4f}, val_loss: {:.4f}, val_acc: {:.4f}".format(
-            epoch+1, result['train_loss'], result['val_loss'], result['val_acc']))
+        print("Epoch [{}], train_loss: {:.4f}, train_accuracy: {:.4f}".format(
+            epoch+1, result['train_loss'], result['train_accuracy']))
 
 
-# In[11]:
+# In[12]:
 
 
 class CNN(FaceMaskClassificationBase):
     def __init__(self):
         super(CNN, self).__init__()
         self.conv_layer = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(inplace=True),
+            nn.Conv2d(in_channels=3, out_channels=128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(p=0.02),
+
+            nn.Conv2d(in_channels=128, out_channels=64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(p=0.02),
+
+            nn.Conv2d(in_channels=64, out_channels=32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(p=0.02),
+
             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.LeakyReLU(inplace=True),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(p=0.02),
+
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2)
         )
         self.fc_layer = nn.Sequential(
             nn.Dropout(p=0.1),
-            nn.Linear(246016, 1024),
+            nn.Linear(6272, 512),
             nn.ReLU(inplace=True),
-            nn.Linear(1024, 512),
+            nn.Linear(512, 128),
             nn.ReLU(inplace=True),
             nn.Dropout(p=0.1),
-            nn.Linear(512, num_of_classes),
+            nn.Linear(128, num_of_classes),
         )
 
     def forward(self, x):
@@ -207,7 +266,7 @@ class CNN(FaceMaskClassificationBase):
         return x
 
 
-# In[12]:
+# In[13]:
 
 
 def accuracy(outputs, labels):
@@ -222,19 +281,20 @@ def evaluate(model, val_loader):
     return model.validation_epoch_end(outputs)
 
   
-def fit(epochs, lr, model, train_loader, val_loader, opt_func = torch.optim.SGD):
-    
-    history = []
+def fit(epochs, lr, model, train_loader, history, opt_func = torch.optim.SGD):
     optimizer = opt_func(model.parameters(),lr)
     for epoch in range(epochs):
         model.train()
         train_losses = []
+        train_correct = 0
         for batch in train_loader:
-            images, labels = batch
+            images, labels, _, _ = batch
             # forward-pass: compute-predicted-outputs-by-passing-inputs-to-the-model
-            loss = model.training_step(batch)
+            loss, correct = model.training_step(batch)
             # update-training-loss
             train_losses.append(loss)
+
+            train_correct += correct
             # backward-pass: compute-gradient-of-the-loss-wrt-model-parameters
             loss.backward()
             # perform-a-single-optimization-step (parameter-update)
@@ -242,161 +302,448 @@ def fit(epochs, lr, model, train_loader, val_loader, opt_func = torch.optim.SGD)
             # clear-the-gradients-of-all-optimized-variables
             optimizer.zero_grad()
             
-        result = evaluate(model, val_loader)
+        #result = evaluate(model, val_loader)
+        result = {}
         result['train_loss'] = torch.stack(train_losses).mean().item()
+        result['train_accuracy'] = train_correct / len(train_loader.dataset) * 100
+        
         model.epoch_end(epoch, result)
-        history.append(result)
-    
+        #history.append(result)
+
+    history['train_loss'] = result['train_loss']
+    history['train_accuracy'] = result['train_accuracy']
+
     return history
 
 
-# In[13]:
+# In[14]:
 
 
 model = CNN()
 model = model.to(device)
 
 
+# In[15]:
+
+
+from sklearn.metrics import precision_recall_fscore_support as score
+
+def test_phase(model, test_loader, history):
+  y_true = torch.tensor([])
+  y_true = y_true.to(device)
+  y_preds = torch.tensor([])
+  y_preds = y_preds.to(device)
+
+  # test-the-model
+  model.eval()  # it-disables-dropout
+  with torch.no_grad():
+      correct = 0
+      total = 0
+      for images, labels, _, _ in test_loader:
+          images = images.to(device)
+          labels = labels.to(device)
+          y_true = torch.cat(
+              (y_true, labels)
+          )
+          outputs = model(images)
+
+          loss = F.cross_entropy(outputs, labels) # Calculate loss
+          scores, predicted = torch.max(outputs.data, 1)
+          
+
+          #_, predicted = torch.max(outputs.data, 1)
+          total += labels.size(0)
+          correct += (predicted == labels).sum().item()
+          y_preds = torch.cat(
+              (y_preds, predicted)
+          )
+
+      test_accuracy = correct / total * 100
+      print('Test loss of the model: {:.4f} %'.format(loss)) 
+      print('Test Accuracy of the model: {} %'.format(test_accuracy))
+
+      history['test_loss'] = loss
+      history['test_accuracy'] = test_accuracy
+
+
+  y_true = y_true.to('cpu')
+  y_preds = y_preds.to('cpu')
+  
+  precision, recall, fscore, support = score(y_true, y_preds)
+  print(classification_report(y_true,y_preds))
+
+  return history
+
+
+# In[16]:
+
+
+k = 10
+
+def KFold_creator(model, dataset, batch_size, device):
+  kfold = KFold(n_splits=k, shuffle=True)
+  fold_value = 1;
+  foldperf={}
+  for fold, (train_idx, test_idx) in enumerate(kfold.split(dataset)):
+    print('Fold {}'.format(fold + 1))
+    train_data = Subset(dataset, train_idx)
+    test_data = Subset(dataset, test_idx)
+
+    train_loader = torch.utils.data.DataLoader(dataset=train_data,batch_size=batch_size,num_workers=0, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(dataset=test_data,batch_size=batch_size,num_workers=0, shuffle=True)
+    
+    #model.apply(reset_weights)
+
+    history = {'train_loss': 0, 'test_loss': 0,'train_accuracy': 0,'test_accuracy': 0}
+
+    history = fit(10, 0.0001, model, train_loader, history, torch.optim.Adam)
+    history = test_phase(model, test_loader, history)
+
+    foldperf['fold{}'.format(fold+1)] = history   
+  
+  return foldperf
+
+
 # In[17]:
 
 
-history = fit(50, 0.001, model, train_loader, val_loader, torch.optim.Adam)
+from sklearn.metrics import confusion_matrix, classification_report
 
-torch.save(model, model_path)
+foldperf = KFold_creator(model, train_dataset, batch_size, device)
 
 
 # In[18]:
 
 
-import matplotlib.pyplot as plt
+testLoss, trainLoss, testAccuracy, trainAccuracy = [], [], [], []
+for f in range(1, k+1):
+  trainLoss.append(foldperf['fold{}'.format(f)]['train_loss'])
+  trainAccuracy.append(foldperf['fold{}'.format(f)]['train_accuracy'])
+  testLoss.append(foldperf['fold{}'.format(f)]['test_loss'])
+  testAccuracy.append(foldperf['fold{}'.format(f)]['test_accuracy'])
 
-def plot_accuracies(history):
-    """ Plot the history of accuracies"""
-    accuracies = [x['val_acc'] for x in history]
-    plt.plot(accuracies, '-x')
-    plt.xlabel('epoch')
-    plt.ylabel('accuracy')
-    plt.title('Accuracy vs. No. of epochs');
-    
-
-plot_accuracies(history)
+print('Performance of {} fold cross validation'.format(k))
+print("Average Training Loss: {:.4f} \t Average Test Loss: {:.4f} \t Average Training Acc: {:.4f} \t Average Test Acc: {:.4f}".format(np.mean(trainLoss),sum(testLoss)/k,np.mean(trainAccuracy),sum(testAccuracy)/k))     
 
 
 # In[19]:
 
 
-def S(history):
-    """ Plot the losses in each epoch"""
-    train_losses = [x.get('train_loss') for x in history]
-    val_losses = [x['val_loss'] for x in history]
-    plt.plot(train_losses, '-bx')
-    plt.plot(val_losses, '-rx')
-    plt.xlabel('epoch')
-    plt.ylabel('loss')
-    plt.legend(['Training', 'Validation'])
-    plt.title('Loss vs. No. of epochs');
+import matplotlib.pyplot as plt
 
-plot_losses(history)
+def plot_accuracies(trainAccuracy, testAccuracy):
+    """ Plot the accuracies in each fold"""
+    plt.figure(figsize=(10,8))
+    plt.semilogy(trainAccuracy, label='Train')
+    plt.semilogy(testAccuracy, label='Test')
+    plt.xlabel('Fold')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.title('Accuracy vs. No. of folds')
+    plt.show()
 
 
 # In[20]:
 
 
-test_dataset = FaceMaskDataset(test_indexes, conversion=transform)
-print("Loading test set")
-test_loader = torch.utils.data.DataLoader(
-    dataset=test_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+plot_accuracies(trainAccuracy, testAccuracy)
+
+
+# In[21]:
+
+
+def model_predict(model, dataset):
+  y_actuals = []
+  y_preds = torch.tensor([])
+  y_preds = y_preds.to(device)
+
+  # test-the-model
+  model.eval()  # it-disables-dropout
+  with torch.no_grad():
+      for image, label, _, _ in dataset:
+        image = image.unsqueeze(0)
+        image = image.to(device)
+        outputs = model(image)
+        _, predicted = torch.max(outputs.data, 1)
+        predicted = predicted.unsqueeze(0)
+        y_preds = torch.cat(
+            (y_preds, predicted)
+        )
+
+        y_actuals.append(label)
+  return np.array(y_actuals, dtype=np.float64), torch.reshape(y_preds.to('cpu'), (-1, )).numpy()
 
 
 # In[22]:
 
 
-y_true = torch.tensor([])
-y_true = y_true.to(device)
-y_preds = torch.tensor([])
-y_preds = y_preds.to(device)
-
-# test-the-model
-model.eval()  # it-disables-dropout
-with torch.no_grad():
-    correct = 0
-    total = 0
-    for images, labels in test_loader:
-        images = images.to(device)
-        labels = labels.to(device)
-        y_true = torch.cat(
-            (y_true, labels)
-        )
-        outputs = model(images)
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
-        y_preds = torch.cat(
-            (y_preds, predicted)
-        )
-          
-    print('Test Accuracy of the model: {} %'.format(100 * correct / total))
-
-y_true = y_true.to('cpu')
-y_preds = y_preds.to('cpu')
+y_actuals, y_preds = model_predict(model, gtest_dataset)
 
 
-# In[ ]:
+# In[23]:
 
 
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
+import matplotlib.pyplot as plt
 
-# show confusion matrix
-def show_confusion_matrix(y_true, y_preds):
+def heat_map(y_true, y_preds, x_label, y_label, title):
     matrix = confusion_matrix(y_true, y_preds)
     plt.figure(figsize = (10,7))
     ax = sns.heatmap(matrix, fmt='', annot=True, cmap='Blues')
-    ax.set_title('Confusion Matrix with labels!!');
-    ax.set_xlabel('Predicted Mask Type')
-    ax.set_ylabel('Actual Mask Type')
+    ax.set_title(title);
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
     ax.xaxis.set_ticklabels([i for i in classes.keys()])
     ax.yaxis.set_ticklabels([i for i in classes.keys()])
     plt.show()
 
-show_confusion_matrix(y_true, y_preds)
+def show_confusion_matrix(y_actuals, y_preds):
+  precision, recall, fscore, support = score(y_actuals, y_preds)
+  print(classification_report(y_actuals,y_preds))
 
 
-# In[ ]:
+# In[24]:
 
 
-from sklearn.metrics import precision_recall_fscore_support as score
-precision, recall, fscore, support = score(y_true, y_preds)
-print(classification_report(y_true,y_preds))
+show_confusion_matrix(y_actuals, y_preds)
+
+heat_map(y_actuals, y_preds, 'Predicted Mask Type', 'Actual Mask Type', 'Confusion Matrix with labels!!')
 
 
-# In[ ]:
+# In[25]:
 
 
-def label_to_classname(label):
-  for classname in classes.keys():
-    if classes[classname] == label:
-      return classname
-  return 'NULL'
+def split_test_set_by_category(dataset, class_index, group):
+  """
+  Returns two datasets from spliting, based on the binary category it belongs to (e.g. Female/Male).
+  """
+  label_0, label_1 = group.keys()
+  
+  test_0 = []
+  test_1 = []
+  for index, row in enumerate(dataset):
+    if row[class_index] == label_0:
+      test_0.append(index)
+    elif row[class_index] == label_1:
+      test_1.append(index)
+
+  return test_0, test_1
+
+def calculate_classification_metrics(y_actual, y_predicted, threshold):
+  throshold_layer = lambda x: 1 if x >= threshold else 0
+  
+  y_predicted = np.array([throshold_layer(i) for i in y_predicted], dtype=np.float64)
+
+  cf_matrix = confusion_matrix(y_actual, y_predicted).ravel()
+
+  tn, fp, fn, tp = cf_matrix[0], cf_matrix[1], cf_matrix[2], cf_matrix[3]
+  """ Positive rate: % classified as positive (% predicted with correct face mask type) """
+  pr = (tp + fp) / (tn + fp + fn + tp)
+
+  """ Negative rate: % classified as negative (% predicted to default) """
+  nr = (tn + fn) / (tn + fp + fn + tp)
+
+  """ True positive rate: % of all positive that were classified correctly with its face mask. """
+  tpr = 0
+  if (tp + fn) != 0:
+    tpr = tp / (tp + fn)
+
+  """ False positive rate: % of all negatives that we miss-classified with the face mask. """
+  fpr = 0
+  if (fp + tn) != 0:
+    fpr = fp / (fp + tn)
+
+  return tp, fp, pr, nr, tpr, fpr
 
 
-# In[ ]:
+def run_algorithmic_interventions(test_0, test_1):
+  results_columns = ['IntervationName', 'Correct', 'threshold_0', 'threshold_1', 'TruePositive0', 'FalsePositive0',
+                       'PositiveRate0', 'NegativeRate0', 'TruePositiveRate0', 'FalsePositiveRate0', 'TruePositive1',
+                       'FalsePositive1', 'PositiveRate1', 'NegativeRate1', 'TruePositiveRate1', 'FalsePositiveRate1']
+                       
+  results_df = pd.DataFrame(columns=results_columns)
+
+  thresholds = np.arange(0, 1.01, 0.02)
+
+  for t0 in thresholds:
+      for t1 in thresholds:
+
+          results_group_0 = calculate_classification_metrics(test_0[0], test_0[1], t0)
+
+          results_group_1 = calculate_classification_metrics(test_1[0], test_1[1], t1)
+
+          tp0, fp0, pr0, nr0, tpr0, fpr0 = results_group_0
+          tp1, fp1, pr1, nr1, tpr1, fpr1 = results_group_1
+
+          bias_function = (tp0 + tp1) - (fp0 + fp1)
+
+          """
+          Intervention 1: no fairness constraint
+          """
+          results_df = results_df.append(
+              pd.DataFrame(
+                  columns=results_columns,
+                  data=[('MaxProfit', bias_function, t0, t1) + results_group_0 + results_group_1]))
+
+          """
+          Intervention 2: uses same FICO (Fair credit score) threshold for all groups
+          """
+          if t0 == t1:
+              results_df = results_df.append(pd.DataFrame(
+                  columns=results_columns,
+                  data=[('GroupUnawareness', bias_function, t0, t1) + results_group_0 + results_group_1]))
+
+          """
+          Intervention 3: picks for each group a threshold such that the fraction of group members wearing the different types of face masks is the same
+          """
+          if round(pr0, 2) == round(pr1, 2):
+              results_df = results_df.append(pd.DataFrame(
+                  columns=results_columns,
+                  data=[('DemographicParity', bias_function, t0, t1) + results_group_0 + results_group_1]))
+
+          """
+          Intervention 4: picks a threshold for each group such that fraction of people with the correct labeled face mask group members is the same.
+          """
+          if round(tpr0, 2) == round(tpr1, 2):
+              results_df = results_df.append(pd.DataFrame(
+                  columns=results_columns,
+                  data=[('EqualOpportunity', bias_function, t0, t1) + results_group_0 + results_group_1]))
+              """
+              Intervention 5: requires both the fraction of people with the correct labeled face mask and the fraction of people with the incorrect labeled face mask to be constant across groups.
+              """
+              if round(fpr0, 2) == round(fpr1, 2):
+                  results_df = results_df.append(pd.DataFrame(
+                      columns=results_columns,
+                      data=[('EqualisedOdds', bias_function, t0, t1) + results_group_0 + results_group_1]))
+            
+  return results_df
 
 
-# Put new images at the 'test' directory to classify them
-new_images_path = os.path.join(root_folder, "./test")
+# In[26]:
 
-# get new images
-new_images = os.listdir(new_images_path)
 
-with torch.no_grad():
-    for image in new_images:
-      file_name = image
-      image = transform(Image.open(os.path.join(new_images_path, image)).convert('RGB'))
-      # image = image.unsqueeze(1)
-      image = image.unsqueeze(0)
-      image = image.to(device)
-      labels = model(image)
-      _, predicted = torch.max(labels.data, 1)
-      print(f'{file_name} file is {label_to_classname(predicted[0])}')
+# Bias measures by Gender
+test_gender_female_indexes, test_gender_male_indexes = split_test_set_by_category(gtest_dataset, columns.index('gender'), genderGroup)
+
+print(test_gender_female_indexes)
+print(test_gender_male_indexes)
+
+
+# In[27]:
+
+
+y_gender_female_actuals = np.array([y_actuals[i] for i in test_gender_female_indexes], dtype=np.float64)
+y_gender_female_predictions = np.array([y_preds[i] for i in test_gender_female_indexes], dtype=np.float64)
+
+y_gender_male_actuals = np.array([y_actuals[i] for i in test_gender_male_indexes], dtype=np.float64)
+y_gender_male_predictions = np.array([y_preds[i] for i in test_gender_male_indexes], dtype=np.float64)
+
+
+# In[28]:
+
+
+show_confusion_matrix(y_gender_female_actuals, y_gender_female_predictions)
+
+heat_map(y_gender_female_actuals, y_gender_female_predictions, 'Predicted Mask Type', 'Actual Mask Type', 'Gender - Confusion Matrix with labels by Female!!')
+
+
+# In[29]:
+
+
+show_confusion_matrix(y_gender_male_actuals, y_gender_male_predictions)
+
+heat_map(y_gender_male_actuals, y_gender_male_predictions, 'Predicted Mask Type', 'Actual Mask Type', 'Gender - Confusion Matrix with labels by Male!!')
+
+
+# In[30]:
+
+
+gender_results = run_algorithmic_interventions(
+    [y_gender_female_actuals, y_gender_female_predictions],
+    [y_gender_male_actuals, y_gender_male_predictions]
+)
+
+gender_results.to_csv(os.path.join('./', 'fairness_by_gender.csv'))
+
+
+# In[31]:
+
+
+# Bias measures by Age
+test_age_group_0_indexes, test_age_group_1_indexes = split_test_set_by_category(gtest_dataset, columns.index('age'), ageGroup)
+
+print(test_age_group_0_indexes)
+print(test_age_group_1_indexes)
+
+
+# In[32]:
+
+
+y_age_group_0_actuals = np.array([y_actuals[i] for i in test_age_group_0_indexes], dtype=np.float64)
+y_age_group_0_predictions = np.array([y_preds[i] for i in test_age_group_0_indexes], dtype=np.float64)
+
+y_age_group_1_actuals = np.array([y_actuals[i] for i in test_age_group_1_indexes], dtype=np.float64)
+y_age_group_1_predictions = np.array([y_preds[i] for i in test_age_group_1_indexes], dtype=np.float64)
+
+
+# In[33]:
+
+
+show_confusion_matrix(y_age_group_0_actuals, y_age_group_0_predictions)
+
+heat_map(y_age_group_0_actuals, y_age_group_0_predictions, 'Predicted Mask Type', 'Actual Mask Type', 'Age - Confusion Matrix with labels by 0-30 age group!!')
+
+
+# In[34]:
+
+
+show_confusion_matrix(y_age_group_1_actuals, y_age_group_1_predictions)
+
+heat_map(y_age_group_1_actuals, y_age_group_1_predictions, 'Predicted Mask Type', 'Actual Mask Type', 'Age - Confusion Matrix with labels by 30-60 age group!!')
+
+
+# In[35]:
+
+
+age_results = run_algorithmic_interventions(
+    [y_age_group_0_actuals, y_age_group_0_predictions],
+    [y_age_group_1_actuals, y_age_group_1_predictions]
+)
+
+age_results.to_csv(os.path.join('./', 'fairness_by_age.csv'))
+
+
+# In[36]:
+
+
+gender_results_df = pd.read_csv(os.path.join('./', 'fairness_by_gender.csv'), index_col=[0]).reset_index(drop=True).round(20)
+
+max_profits_gender = gender_results_df.loc[gender_results_df.groupby(['IntervationName'])['Correct'].idxmax()]  
+max_profits_gender = max_profits_gender.sort_values('Correct', ascending=False)
+
+max_profits_gender
+
+
+# In[37]:
+
+
+max_profits_gender[['threshold_0', 'threshold_1']].describe().loc[['mean', 'std']]
+
+
+# In[38]:
+
+
+age_group_results_df = pd.read_csv(os.path.join('./', 'fairness_by_age.csv'), index_col=[0]).reset_index(drop=True).round(2)
+
+max_profits_age_group = age_group_results_df.loc[age_group_results_df.groupby(['IntervationName'])['Correct'].idxmax()]  
+max_profits_age_group = max_profits_age_group.sort_values('Correct', ascending=False)
+
+max_profits_age_group
+
+
+# In[39]:
+
+
+max_profits_age_group[['threshold_0', 'threshold_1']].describe().loc[['mean', 'std']]
 

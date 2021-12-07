@@ -180,7 +180,6 @@ def preview_classes():
             preselected_class_count[className] += 1
     print(classes, preselected_class_count)
 
-
 def deleteNotRequiredImages():
     """Removes images that doesn't belong to new_dataset/train.csv"""
     root_dir = os.path.join("data", "new_dataset")
@@ -583,18 +582,3 @@ def deleteRows():
     dataset_df.drop(dataset_df.index[deleted_files], inplace=True)
     dataset_df.to_csv(os.path.join(dataset_dir, 'data.csv'))
     print("Deleted files: ", len(deleted_files))
-
-
-# create_dataset_v4('face_with_surgical_mask', 'surgical')
-
-# move_class_data(663, 'face_no_mask')
-# move_files_using_list(os.path.join(rootDir, 'preprocessed', 'face_with_mask'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'), l)
-# move_files_using_file(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed', 'face_with_ff92_mask'),'face_with_ff92_mask.txt')
-# save_preselected_class_data(os.path.join(rootDir, 'preprocessed'), "data.csv")
-# extract_same_class_files(os.path.join(data_folder, 'images'), os.path.join(rootDir, 'preprocessed'), "face_with_mask")
-# create_dataset(os.path.join(data_folder, 'images'),
-#     os.path.join(root_dir, 'preprocessed', 'images'),
-#     {"path": os.path.join(root_dir, 'ffp2'), "classname": 'ffp2_mask'})
-
-
-# preview_classes()
