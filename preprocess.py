@@ -568,6 +568,23 @@ def create_dataset_v4(class_name, class_dir_name):
     print("File created: ", (file_index-seed))
 
 
+def deleteRows():
+    """Removes images that doesn't belong to new_dataset/train.csv"""
+    dataset_dir = os.path.join("data", "preprocessed")
+    new_columns = ["filename", "classname", "gender", "age"]
+    dataset_df = pd.read_csv(os.path.join(dataset_dir, "before.csv"), skiprows=1, names=new_columns)
+    image_dir = os.path.join(dataset_dir, "images")                        
+    deleted_files =[]
+    file_list = os.listdir(image_dir)
+    for row_index in range(len(dataset_df[new_columns[0]])):
+        if dataset_df[new_columns[0]][row_index] not in file_list:
+            deleted_files.append(row_index)
+
+    dataset_df.drop(dataset_df.index[deleted_files], inplace=True)
+    dataset_df.to_csv(os.path.join(dataset_dir, 'data.csv'))
+    print("Deleted files: ", len(deleted_files))
+
+
 # create_dataset_v4('face_with_surgical_mask', 'surgical')
 
 # move_class_data(663, 'face_no_mask')
